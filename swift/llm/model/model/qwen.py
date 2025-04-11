@@ -612,6 +612,50 @@ register_model(
         tags=['vision', 'video']))
 
 
+def get_model_tokenizer_qwen2_5_all2all(*args, **kwargs):
+    path = '/mnt/nas1/zhanghong/project/all2all/Qwen2__5-VL-7B-Instruct-All2All'
+    import sys
+    sys.path.append(path)
+    import os
+    height = int(os.environ.get('IMAGE_TRAIN_SIZE', 252))
+    print(f'train_height {height}')
+    use_img_embed_as_input = os.environ.get('USE_IMG_EMBED_AS_INPUT', 'False').lower() == 'true'
+    USE_DYNAMIC_RATIO = os.environ.get('USE_DYNAMIC_RATIO', 'False').lower() == 'true'
+    print(f'USE_DYNAMIC_RATIO {USE_DYNAMIC_RATIO}')
+    CONSISTANT_EDIT_SCALE = os.environ.get('CONSISTANT_EDIT_SCALE', 'False').lower() == 'true'
+    print(f'CONSISTANT_EDIT_SCALE {CONSISTANT_EDIT_SCALE}')
+
+    if not use_img_embed_as_input:
+        print('use_img_embed_as_input is False')
+        from modeling_qwen2_5_vl import Qwen2_5_VLForConditionalGeneration
+    else:
+        print('use_img_embed_as_input is True')
+        from modeling_qwen2_5_vl_v0 import Qwen2_5_VLForConditionalGeneration
+    kwargs['automodel_class'] = Qwen2_5_VLForConditionalGeneration
+
+    model, tokenizer = get_model_tokenizer_multimodal(*args, **kwargs)
+    if model is not None and hasattr(model.model, 'embed_tokens'):
+        patch_output_clone(model.model.embed_tokens)
+        patch_output_to_input_device(model.model.embed_tokens)
+
+    patch_qwen_vl_utils()
+    return model, tokenizer
+
+
+register_model(
+    ModelMeta(
+        MLLMModelType.qwen2_5_all2all, [
+            ModelGroup([
+                Model(None, None, '/mnt/nas1/zhanghong/project/all2all/Qwen2__5-VL-7B-Instruct-All2All'),
+            ]),
+        ],
+        TemplateType.qwen2_5_all2all,
+        get_model_tokenizer_qwen2_5_all2all,
+        model_arch=ModelArch.qwen2_vl,
+        architectures=['Qwen2_5_VLForConditionalGeneration'],
+        requires=['transformers>=4.49', 'qwen_vl_utils>=0.0.6', 'decord'],
+        tags=['vision', 'video']))
+
 def get_model_tokenizer_qwen2_audio(*args, **kwargs):
     from transformers import Qwen2AudioForConditionalGeneration
     kwargs['automodel_class'] = kwargs['automodel_class'] or Qwen2AudioForConditionalGeneration
